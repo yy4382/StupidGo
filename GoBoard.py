@@ -42,7 +42,7 @@ class GoBoard(tk.Frame):
                                    self.basic_attributes.board_coordinates[i][self.board_size - 1][0],
                                    self.basic_attributes.board_coordinates[i][self.board_size - 1][1])
             # draw stars
-            if i == 3 or i == 9 or i == 15:
+            if (i == 3 or i == 9 or i == 15) and self.basic_attributes.board_size is 19:
                 self.board.create_oval(self.basic_attributes.board_coordinates[i][3][0] - self.cell_size / 10,
                                        self.basic_attributes.board_coordinates[i][3][1] - self.cell_size / 10,
                                        self.basic_attributes.board_coordinates[i][3][0] + self.cell_size / 10,
@@ -79,8 +79,8 @@ class GoBoard(tk.Frame):
             print("invalid click: outside the board")
             return
 
-        # draw stone if the move is valid
-        self.core.place_stone(i, j)
+        # tell core to handle the coordinate
+        self.core.handle_click_board(i, j)
 
     def draw_stone(self, i, j, current_player):
         color = "black" if current_player == 1 else "white"
