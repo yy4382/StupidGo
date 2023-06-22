@@ -1,4 +1,16 @@
 import pickle
+from collections import deque
+import copy
+
+
+class GoBasicAttributes:
+    def __init__(self, window_size, board_size):
+        self.window_size = window_size
+        self.board_size = board_size
+        self.board_coordinates = [[0 for _ in range(board_size)] for _ in range(board_size)]
+        self.board_status = [[0 for _ in range(self.board_size)] for _ in range(self.board_size)]
+        self.cell_size = window_size / (board_size + 1)
+        self.board_status_history = [pickle.dumps(self.board_status)]
 
 
 class GoCore:
@@ -14,98 +26,95 @@ class GoCore:
         if self.board[i][j] != 0:
             return
 
-        # 更新棋盘，然后吃子，如果判断完之后新棋子是死子，则回滚更新
+        # 判断是否自杀（不更改棋盘）
         self.board[i][j] = self.current_player
+        (has_qi, _) = self._get_qi(i, j)
         removed_stones = self._get_removing_stones(3 - self.current_player)
-        for removed_stone in removed_stones:
-            self.board[removed_stone[0]][removed_stone[1]] = 0
-        (invalid, _) = self._check_kill(i, j)
-        if invalid:
+        self.board[i][j] = 0
+        if not has_qi and not removed_stones:
             self.board[i][j] = 0
-            print(f"Warning for player {self.current_player}: invalid placing in ({i}, {j}) for killing itself")
+            print(f"Warning for player {self.current_player}: invalid placing for killing itself")
             return
 
-        self.current_player = 3 - self.current_player
-
-        # 判断是否和之前的棋盘一致，如果一致则回滚更新，不一致则将此情况储存
-        board_status_pickle = pickle.dumps(self.board)
+        # 判断是否和之前的棋盘一致（不更改棋盘）
+        test_board = copy.deepcopy(self.board)
+        test_board[i][j] = self.current_player
+        for removed_stone in removed_stones:
+            test_board[removed_stone[0]][removed_stone[1]] = 0
+        board_status_pickle = pickle.dumps(test_board)
         for hi in self.history:
             if hi == board_status_pickle:
                 self.board[i][j] = 0
-                for removed_stone in removed_stones:
-                    self.board[removed_stone[0]][removed_stone[1]] = self.current_player
-                self.current_player = 3 - self.current_player
-                print(f"Warning for player {self.current_player}: invalid placing in ({i}, {j}) for the same status")
+                print(f"Warning for player {self.current_player}: invalid placing for the same status")
                 return
+
+        # 此时可以确定此处可以落子，正式修改棋盘,修改gui
+        self.board[i][j] = self.current_player
+        self.parent.board.draw_stone(i, j, self.current_player)
+        for removed_stone in removed_stones:
+            self.board[removed_stone[0]][removed_stone[1]] = 0
+            self.parent.board.remove_stone(*removed_stone)
+
         self.history.append(pickle.dumps(self.board))
 
-        # 此时可以确定此处可以落子，更新gui并打印信息
-        self.parent.board.draw_stone(i, j, 3 - self.current_player)
-        for removed_stone in removed_stones:
-            self.parent.board.remove_stone(removed_stone[0], removed_stone[1])
-        print(f"player {3 - self.current_player}: placed a stone in ({i}, {j})")
+        print(f"player {self.current_player}: placed a stone in ({i}, {j})")
         if removed_stones:
-            print(f"player {self.current_player}'s stone(s) are killed: {removed_stones}")
+            print(f"Killing player {3 - self.current_player}'s stone(s): {removed_stones}")
 
-    def _get_side_stone(self, i, j, stones):
-        target_player = self.board[stones[0][0]][stones[0][1]]
-        if i > 0 and self.board[i - 1][j] == target_player and (not (i - 1, j) in stones):
-            stones.append((i - 1, j))
-            self._get_side_stone(i - 1, j, stones)
-        if i < self.basic_attributes.board_size - 1 and self.board[i + 1][j] == target_player and (
-                not (i + 1, j) in stones):
-            stones.append((i + 1, j))
-            self._get_side_stone(i + 1, j, stones)
-        if j > 0 and self.board[i][j - 1] == target_player and (not (i, j - 1) in stones):
-            stones.append((i, j - 1))
-            self._get_side_stone(i, j - 1, stones)
-        if j < self.basic_attributes.board_size - 1 and self.board[i][j + 1] == target_player and (
-                not (i, j + 1) in stones):
-            stones.append((i, j + 1))
-            self._get_side_stone(i, j + 1, stones)
+        self.current_player = 3 - self.current_player
 
-    def _check_kill(self, i, j):  # 判断 i, j 处的棋子所在整体是否有气，无气返回 False，不依赖 self.current_player
-        side_stones = [(i, j)]
-        self._get_side_stone(i, j, side_stones)
+    def _get_side_stone(self, i, j):
+        # 获得 i, j 处棋子所在的块
+        target_player = self.board[i][j]
+        stones = deque()
+        visited = set()
+        stones.append((i, j))
+        visited.add((i, j))
+        while stones:
+            i, j = stones.popleft()
+            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                x, y = i + dx, j + dy
+                if 0 <= x < self.basic_attributes.board_size and 0 <= y < self.basic_attributes.board_size \
+                        and self.board[x][y] == target_player and (x, y) not in visited:
+                    stones.append((x, y))
+                    visited.add((x, y))
+        return list(visited)
+
+    def _get_qi(self, i, j):
+        # 判断 i, j 处的棋子所在整体是否有气，不依赖 self.current_player
+        side_stones = self._get_side_stone(i, j)
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # left, right, up, down
         for stone in side_stones:
-            left = stone[0] > 0 and self.board[stone[0] - 1][stone[1]] == 0
-            right = stone[0] < self.basic_attributes.board_size - 1 and self.board[stone[0] + 1][stone[1]] == 0
-            up = stone[1] > 0 and self.board[stone[0]][stone[1] - 1] == 0
-            down = stone[1] < self.basic_attributes.board_size - 1 and self.board[stone[0]][stone[1] + 1] == 0
-            if left or right or up or down:
-                return False, side_stones
-        return True, side_stones
+            for dx, dy in directions:
+                x, y = stone[0] + dx, stone[1] + dy
+                if self.basic_attributes.board_size > x >= 0 == self.board[x][y] \
+                        and 0 <= y < self.basic_attributes.board_size:
+                    return True, side_stones
+        return False, side_stones
         # 这一段可以获取这一片棋具体有多少气，不过这里目前只要判断有没有就行，这个说不定之后写ai的时候有用
         # qi_stones = []
         # qi = 0
+        # directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]  # left, right, up, down
         # for stone in side_stones:
-        #     if stone[0] > 0 and self.board[stone[0] - 1][stone[1]] == 0 and (
-        #             not self.board[stone[0] - 1][stone[1]] in qi_stones):
-        #         qi_stones.append((stone[0] - 1, stone[1]))
-        #         qi += 1
-        #     if stone[0] < self.basic_attributes.board_size - 1 and self.board[stone[0] + 1][stone[1]] == 0 and (
-        #             not self.board[stone[0] + 1][stone[1]] in qi_stones):
-        #         qi_stones.append((stone[0] + 1, stone[1]))
-        #         qi += 1
-        #     if stone[1] > 0 and self.board[stone[0]][stone[1] - 1] == 0 and (
-        #             not self.board[stone[0]][stone[1] - 1] in qi_stones):
-        #         qi_stones.append((stone[0], stone[j - 1]))
-        #         qi += 1
-        #     if stone[1] < self.basic_attributes.board_size - 1 and self.board[stone[0]][stone[1] + 1] == 0 and (
-        #             not self.board[stone[0]][stone[1] + 1] in qi_stones):
-        #         qi_stones.append((stone[0], stone[j + 1]))
-        #         qi += 1
+        #     for dx, dy in directions:
+        #         x, y = stone[0] + dx, stone[1] + dy
+        #         if self.basic_attributes.board_size > x >= 0 == self.board[x][
+        #             y] and 0 <= y < self.basic_attributes.board_size and ((x, y) not in qi_stones):
+        #             qi_stones.append((x, y))
+        #             qi += 1
 
     def _get_removing_stones(self, player):
+        # 返回场上所有属于player的无气棋子
         checked_stone = []
-        total_removed_stones = []
+        removed_stones = []
         for i in range(self.basic_attributes.board_size):
             for j in range(self.basic_attributes.board_size):
                 if self.board[i][j] == player and (not (i, j) in checked_stone):
-                    (bo, st) = self._check_kill(i, j)
-                    for item in st:
-                        checked_stone.append(item)
-                    if bo:
-                        for item in st:
-                            total_removed_stones.append((item[0], item[1]))
-        return total_removed_stones
+                    (has_qi, st) = self._get_qi(i, j)
+                    checked_stone.extend(st)
+                    if not has_qi:
+                        removed_stones.extend(st)
+        return removed_stones
+
+    def end_of_game(self):
+        pass
