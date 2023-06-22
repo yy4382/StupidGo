@@ -82,12 +82,13 @@ class GoCore:
 
         self.history.append(pickle.dumps(self.board))
 
+        print()
         print(f"{'黑' if self.current_player == 1 else '白'}棋落在 {self.attributes.c_to_w((i, j))}")
         if removed_stones:
             print(f"{'黑' if 3 - self.current_player == 1 else '白'}棋 {self.attributes.c_to_w(removed_stones)} 被吃")
 
         self.current_player = 3 - self.current_player
-        print()
+        self.parent.toggle_timer()
 
     def _get_side_stone(self, i, j, include_blank=False):
         # 获得 i, j 处棋子所在的块

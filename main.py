@@ -4,16 +4,59 @@ from GoCore import GoCore
 import tkinter as tk
 import sys
 from tkinter import messagebox
+import tkinter.font as tkFont
 
-board_size = 500
-board_style = 19
+window_size = 500
+board_size = 19
+time_lim = 120  # 包干制的比赛计时，以分钟为单位
+
+
+
+class GoTimer:
+    def __init__(self, parent, time_limit, tag):
+        self.parent = parent
+        self.time_limit = time_limit
+        self.remaining_time = time_limit
+        self.tag = tag
+        default_font = tkFont.nametofont("TkDefaultFont")
+        timer_font = tkFont.Font(font=default_font, size=100)
+        self.label = tk.Label(parent, text=self.format_time(time_limit), font=(default_font.actual()['family'], 30), anchor="w")
+        # self.running = False
+        self.cur_update_id = None
+
+
+    def format_time(self, seconds):
+        name = {1: "黑棋计时：    ", 2: "白棋计时：    "}
+        mins, secs = divmod(seconds, 60)
+        return name[self.tag] + f"{mins:02d}:{secs:02d}"
+
+    def update(self):
+        # if not self.running:
+        #     return
+        if self.remaining_time > 0:
+            self.remaining_time -= 1
+            self.label.config(text=self.format_time(self.remaining_time))
+            self.cur_update_id = self.parent.after(1000, self.update)
+        else:
+            name = {1: "黑棋超时负，白棋胜", 2: "白棋超时负，黑棋胜"}
+            messagebox.showinfo("时间耗尽", name[self.tag])
+            self.parent.end_of_game()
+
+    def pause(self):
+        # self.running = False
+        self.parent.after_cancel(self.cur_update_id)
+        self.cur_update_id = None
+
+    def start(self):
+        # self.running = True
+        self.update()
 
 
 class GoControl(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
 
-        self.basic_attributes = GoBasicAttributes(board_size, board_style)
+        self.basic_attributes = GoBasicAttributes(window_size, board_size)
         self.core = GoCore(self)
         self.title("Go")
         # self.geometry(f"{self.basic_attributes.window_size}x{self.basic_attributes.window_size + 100}")
@@ -25,7 +68,7 @@ class GoControl(tk.Tk):
         current_row += 1
 
         self.end_label = tk.Label(self,
-                                  text="\n注意：按照中国规则的要求，须在确认终局前把单官收完，否则自动判定胜负无法正常工作",
+                                  text="\n注意：按照中国规则的要求，须在确认终局前把单官收完，否则自动胜负判定可能报错或者给出错误结果",
                                   anchor='w')
         self.end_label.grid(row=current_row, column=0, columnspan=3, sticky='w')
         current_row += 1
@@ -46,6 +89,13 @@ class GoControl(tk.Tk):
 
         sys.stdout.write = self.update_log_box
 
+        self.black_timer = GoTimer(self, time_lim * 60, 1)
+        self.white_timer = GoTimer(self, time_lim * 60, 2)
+        self.black_timer.label.grid(row=current_row, column=0, columnspan=3, sticky="w")
+        current_row += 1
+        self.white_timer.label.grid(row=current_row, column=0, columnspan=3, sticky="w")
+        self.black_timer.start()
+
     def update_log_box(self, s):
         self.log_box.configure(state='normal')
         self.log_box.insert(tk.END, s)
@@ -61,9 +111,18 @@ class GoControl(tk.Tk):
     def on_black_fail_btn_clicked(self):
         messagebox.showinfo("认负结果", "白棋赢")
         self.end_of_game()
+
     def on_white_fail_btn_clicked(self):
         messagebox.showinfo("认负结果", "黑棋赢")
         self.end_of_game()
+
+    def toggle_timer(self):
+        if self.black_timer.cur_update_id is not None:
+            self.black_timer.pause()
+            self.white_timer.start()
+        else:
+            self.black_timer.start()
+            self.white_timer.pause()
 
 
 if __name__ == '__main__':
