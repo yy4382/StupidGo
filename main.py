@@ -11,7 +11,6 @@ board_size = 19
 time_lim = 120  # 包干制的比赛计时，以分钟为单位
 
 
-
 class GoTimer:
     def __init__(self, parent, time_limit, tag):
         self.parent = parent
@@ -20,13 +19,13 @@ class GoTimer:
         self.tag = tag
         default_font = tkFont.nametofont("TkDefaultFont")
         timer_font = tkFont.Font(font=default_font, size=100)
-        self.label = tk.Label(parent, text=self.format_time(time_limit), font=(default_font.actual()['family'], 30), anchor="w")
+        self.label = tk.Label(parent, text=self.format_time(time_limit), font=(default_font.actual()['family'], 30),
+                              anchor="w")
         # self.running = False
         self.cur_update_id = None
 
-
     def format_time(self, seconds):
-        name = {1: "黑棋计时：    ", 2: "白棋计时：    "}
+        name = {1: "\n黑棋计时：    ", 2: "白棋计时：    "}
         mins, secs = divmod(seconds, 60)
         return name[self.tag] + f"{mins:02d}:{secs:02d}"
 

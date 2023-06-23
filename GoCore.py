@@ -44,9 +44,9 @@ class GoCore:
         elif self.attributes.removing_dead_mode:
             print("此处无子")
         else:
-            self.place_stone(i, j)
+            self._place_stone(i, j)
 
-    def place_stone(self, i, j):
+    def _place_stone(self, i, j):
         # judge if there is already a stone
         if self.board[i][j] != 0:
             return
