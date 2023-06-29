@@ -35,6 +35,7 @@ class GoCore:
         self.current_player = 1
 
     def handle_click_board(self, i, j):
+        # 处理点击事件，根据 removing_dead_mode 做出不同反应
         if self.attributes.removing_dead_mode and self.board[i][j] != 0:
             removing_stones = self._get_side_stone(i, j, True)
             for removed_stone in removing_stones:
@@ -203,7 +204,5 @@ class GoCore:
         if self.attributes.removing_dead_mode:
             self.attributes.removing_dead_mode = False
             self._judge_win()
-
-
         else:
             self._remove_dead_stones()

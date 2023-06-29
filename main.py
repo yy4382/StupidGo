@@ -4,7 +4,7 @@ from GoCore import GoCore
 import tkinter as tk
 import sys
 from tkinter import messagebox
-import tkinter.font as tkFont
+import tkinter.font
 
 window_size = 500
 board_size = 19
@@ -17,11 +17,9 @@ class GoTimer:
         self.time_limit = time_limit
         self.remaining_time = time_limit
         self.tag = tag
-        default_font = tkFont.nametofont("TkDefaultFont")
-        timer_font = tkFont.Font(font=default_font, size=100)
+        default_font = tkinter.font.nametofont("TkDefaultFont")
         self.label = tk.Label(parent, text=self.format_time(time_limit), font=(default_font.actual()['family'], 30),
                               anchor="w")
-        # self.running = False
         self.cur_update_id = None
 
     def format_time(self, seconds):
@@ -30,8 +28,6 @@ class GoTimer:
         return name[self.tag] + f"{mins:02d}:{secs:02d}"
 
     def update(self):
-        # if not self.running:
-        #     return
         if self.remaining_time > 0:
             self.remaining_time -= 1
             self.label.config(text=self.format_time(self.remaining_time))
@@ -42,12 +38,10 @@ class GoTimer:
             self.parent.end_of_game()
 
     def pause(self):
-        # self.running = False
         self.parent.after_cancel(self.cur_update_id)
         self.cur_update_id = None
 
     def start(self):
-        # self.running = True
         self.update()
 
 
@@ -58,7 +52,6 @@ class GoControl(tk.Tk):
         self.basic_attributes = GoBasicAttributes(window_size, board_size)
         self.core = GoCore(self)
         self.title("Go")
-        # self.geometry(f"{self.basic_attributes.window_size}x{self.basic_attributes.window_size + 100}")
         self.resizable(False, False)
         self.board = GoBoard(self)
         current_row = 0
@@ -66,6 +59,7 @@ class GoControl(tk.Tk):
         self.board.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
+        # draw buttons
         self.end_label = tk.Label(self,
                                   text="\n注意：按照中国规则的要求，须在确认终局前把单官收完，否则自动胜负判定可能报错或者给出错误结果",
                                   anchor='w')
